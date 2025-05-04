@@ -1,5 +1,7 @@
-﻿using BusSearch.Application.ViewModels;
-using BusSearch.Domain.Interfaces;
+﻿using BusSearch.Application.Constants;
+using BusSearch.Application.Interfaces;
+using BusSearch.Application.ViewModels.Journey;
+using BusSearch.WebUI.ViewModels.Journey;
 using Microsoft.AspNetCore.Mvc;
 
 namespace BusSearch.WebUI.Controllers
@@ -16,27 +18,28 @@ namespace BusSearch.WebUI.Controllers
         [HttpGet]
         public async Task<IActionResult> Index(int originId, int destinationId, string departureDate, string originName, string destinationName)
         {
-            if (string.IsNullOrEmpty(departureDate))
-                return BadRequest("Tarih bilgisi geçersiz.");
-
-            var journeyData = await _obiletService.GetJourneysAsync(originId, destinationId, departureDate);
-
-            var journeys = journeyData?.Select(j => new JourneyViewModel
+            if (!DateTime.TryParse(departureDate, out var parsedDate))
             {
-                OriginName = j.OriginLocation,
-                DestinationName = j.DestinationLocation,
-                OriginTerminal = j.Journey.Origin,
-                DestinationTerminal = j.Journey.Destination,
-                DepartureTime = j.Journey.Departure.ToString("HH:mm"),
-                ArrivalTime = j.Journey.Arrival.ToString("HH:mm"),
-                Price = j.Journey.InternetPrice
-            }).ToList() ?? new List<JourneyViewModel>();
+                TempData["ErrorMessage"] = ErrorMessages.ValidDate;
+                return RedirectToAction("Index", "Home");
+            }
+
+            var journeyItems = await _obiletService.GetJourneysAsync(originId, destinationId, departureDate);
+
+            var journeys = journeyItems.Select(j => new JourneyViewModel
+            {
+                OriginTerminal = j.OriginTerminal,
+                DestinationTerminal = j.DestinationTerminal,
+                DepartureTime = j.Departure.ToString("HH:mm"),
+                ArrivalTime = j.Arrival.ToString("HH:mm"),
+                Price = j.Price
+            }).ToList();
 
             var model = new JourneyIndexViewModel
             {
                 OriginName = originName ?? string.Empty,
                 DestinationName = destinationName ?? string.Empty,
-                DepartureDate = departureDate,
+                DepartureDate = parsedDate.ToString("yyyy-MM-dd"),
                 Journeys = journeys
             };
 

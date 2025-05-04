@@ -1,12 +1,7 @@
-﻿using BusSearch.Domain.Interfaces;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+﻿using BusSearch.Application.Constants;
 using System.Text.Json.Serialization;
-using System.Threading.Tasks;
 
-namespace BusSearch.Domain.Location
+namespace BusSearch.Infrastructure.Models.ObiletApi.Location
 {
     public class BusLocationRequest : IDeviceRequest
     {
@@ -20,7 +15,7 @@ namespace BusSearch.Domain.Location
         public DateTime Date { get; set; } = DateTime.Now;
 
         [JsonPropertyName("language")]
-        public string Language { get; set; } = "tr-TR";
+        public string Language { get; set; } = Languages.DefaultLanguage;
     }
 
     public class DeviceSession

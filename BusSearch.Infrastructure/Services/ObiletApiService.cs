@@ -3,11 +3,14 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using BusSearch.Domain.Interfaces;
-using BusSearch.Domain.Journey;
-using BusSearch.Domain.Location;
-using BusSearch.Domain.Sessions;
+using BusSearch.Application.Interfaces;
+using BusSearch.Application.Constants;
+using BusSearch.Application.Models.Dtos;
 using BusSearch.Infrastructure.Configurations;
+using BusSearch.Infrastructure.Models.ObiletApi.Location;
+using BusSearch.Infrastructure.Models.ObiletApi.Journey;
+using BusSearch.Infrastructure.Models.ObiletApi.Sessions;
+using BusSearch.Infrastructure.Models.ObiletApi;
 
 namespace BusSearch.Infrastructure.Services
 {
@@ -68,11 +71,12 @@ namespace BusSearch.Infrastructure.Services
             _logger.LogInformation("Session oluşturuldu. SessionId: {SessionId}, DeviceId: {DeviceId}", SessionId, DeviceId);
         }
 
-        public async Task<List<JourneyItem>> GetJourneysAsync(int originId, int destinationId, string departureDate)
+        public async Task<List<JourneyItemDto>> GetJourneysAsync(int originId, int destinationId, string departureDate)
         {
             await EnsureSessionAsync();
 
-            _logger.LogInformation("Seferler alınıyor. OriginId: {OriginId}, DestinationId: {DestinationId}, Date: {Date}", originId, destinationId, departureDate);
+            _logger.LogInformation("Seferler alınıyor. OriginId: {OriginId}, DestinationId: {DestinationId}, Date: {Date}",
+                originId, destinationId, departureDate);
 
             var request = CreateDeviceRequest(new JourneyRequest
             {
@@ -85,10 +89,20 @@ namespace BusSearch.Infrastructure.Services
             });
 
             var response = await SendRequestAsync<JourneyResponse>(JourneyUrl, request);
-            return response?.Data?.OrderBy(j => j.Journey.Departure).ToList() ?? new();
+
+            return response?.Data?.Select(j => new JourneyItemDto
+            {
+                OriginLocation = j.OriginLocation,
+                DestinationLocation = j.DestinationLocation,
+                OriginTerminal = j.Journey.Origin,
+                DestinationTerminal = j.Journey.Destination,
+                Departure = j.Journey.Departure,
+                Arrival = j.Journey.Arrival,
+                Price = j.Journey.InternetPrice
+            }).OrderBy(j => j.Departure).ToList() ?? new();
         }
 
-        public async Task<List<BusLocation>> GetAllBusLocationsAsync()
+        public async Task<List<BusLocationDto>> GetAllBusLocationsAsync()
         {
             await EnsureSessionAsync();
 
@@ -97,26 +111,33 @@ namespace BusSearch.Infrastructure.Services
             var request = CreateDeviceRequest(new BusLocationRequest { Data = null });
 
             var response = await SendRequestAsync<BusLocationResponse>(BusLocationsUrl, request);
-            _logger.LogInformation("Toplam {Count} lokasyon alındı.", response?.Data?.Count ?? 0);
 
-            return response?.Data ?? new();
+            return response?.Data?.Select(l => new BusLocationDto
+            {
+                Id = l.Id,
+                Name = l.Name,
+                CityName = l.CityName,
+                Rank = l.Rank
+            }).ToList() ?? new();
         }
 
-        public async Task<List<BusLocation>> SearchBusLocationsAsync(string keyword)
+        public async Task<List<BusLocationDto>> SearchBusLocationsAsync(string keyword)
         {
             await EnsureSessionAsync();
 
             _logger.LogInformation("Lokasyon aranıyor. Anahtar kelime: {Keyword}", keyword);
 
-            var request = CreateDeviceRequest(new BusLocationRequest
-            {
-                Data = keyword
-            });
+            var request = CreateDeviceRequest(new BusLocationRequest { Data = keyword });
 
             var response = await SendRequestAsync<BusLocationResponse>(BusLocationsUrl, request);
-            _logger.LogInformation("{Count} sonuç bulundu.", response?.Data?.Count ?? 0);
 
-            return response?.Data ?? new();
+            return response?.Data?.Select(l => new BusLocationDto
+            {
+                Id = l.Id,
+                Name = l.Name,
+                CityName = l.CityName,
+                Rank = l.Rank
+            }).ToList() ?? new();
         }
 
         private async Task<T?> SendRequestAsync<T>(string url, object requestBody)
@@ -124,6 +145,7 @@ namespace BusSearch.Infrastructure.Services
             try
             {
                 _logger.LogDebug("POST isteği gönderiliyor -> {Url}", url);
+
                 var response = await _httpClient.PostAsJsonAsync(url, requestBody);
                 var content = await response.Content.ReadAsStringAsync();
 
@@ -158,7 +180,7 @@ namespace BusSearch.Infrastructure.Services
                 DeviceId = DeviceId!
             };
             request.Date = DateTime.Now;
-            request.Language = "tr-TR";
+            request.Language = Languages.DefaultLanguage;
 
             return request;
         }

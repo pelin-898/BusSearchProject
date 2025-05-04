@@ -1,11 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Text.Json.Serialization;
-using System.Threading.Tasks;
+﻿using System.Text.Json.Serialization;
 
-namespace BusSearch.Domain.Journey
+
+namespace BusSearch.Infrastructure.Models.ObiletApi.Journey
 {
     public class JourneyResponse
     {
@@ -22,7 +18,6 @@ namespace BusSearch.Domain.Journey
 
         [JsonPropertyName("destination-location")]
         public string DestinationLocation { get; set; }
-
         public JourneyDetail Journey { get; set; }
     }
 

@@ -1,11 +1,6 @@
-﻿using BusSearch.Domain.Location;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using BusSearch.Infrastructure.Models.ObiletApi.Location;
 
-namespace BusSearch.Domain.Interfaces
+namespace BusSearch.Infrastructure.Models.ObiletApi
 {
     public interface IDeviceRequest
     {

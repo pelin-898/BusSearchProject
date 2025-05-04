@@ -1,13 +1,8 @@
 ﻿using BusSearch.Application.Constants;
 using BusSearch.Application.Interfaces;
-using BusSearch.Application.ViewModels;
-using BusSearch.Domain.Interfaces;
+using BusSearch.Application.Models.Dtos;
 using Microsoft.Extensions.Logging;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+
 
 namespace BusSearch.Application.Services
 {
@@ -22,29 +17,18 @@ namespace BusSearch.Application.Services
             _logger = logger;
         }
 
-        public async Task<JourneySearchViewModel> PrepareDefaultSearchModelAsync()
+        public async Task<JourneySearchDto> PrepareDefaultSearchModelAsync()
         {
             _logger.LogInformation("Varsayılan arama modeli hazırlanıyor.");
             try
             {
-
                 var locations = await _apiService.GetAllBusLocationsAsync();
                 var sortedLocations = locations.OrderBy(x => x.Rank ?? int.MaxValue).ToList();
 
                 var defaultOrigin = sortedLocations.FirstOrDefault();
                 var defaultDestination = sortedLocations.ElementAtOrDefault(2);
 
-                return new JourneySearchViewModel
-                {
-                    Locations = sortedLocations ?? new(),
-                    OriginId = defaultOrigin?.Id ?? 0,
-                    DestinationId = defaultDestination?.Id ?? 0,
-                    OriginName = defaultOrigin?.Name ?? "",
-                    DestinationName = defaultDestination?.Name ?? "",
-                    OriginCityName = defaultOrigin?.CityName ?? "",
-                    DestinationCityName = defaultDestination?.CityName ?? "",
-                    DepartureDate = DateTime.Today.AddDays(1)
-                };
+                return MapToDto(defaultOrigin, defaultDestination, sortedLocations);
             }
             catch (Exception ex)
             {
@@ -53,10 +37,10 @@ namespace BusSearch.Application.Services
             }
         }
 
-        public string ValidateSearchModel(JourneySearchViewModel model)
+        public string ValidateSearchModel(JourneySearchDto model)
         {
             _logger.LogInformation("Arama modeli doğrulanıyor. OriginId: {OriginId}, DestinationId: {DestinationId}, Date: {Date}",
-         model.OriginId, model.DestinationId, model.DepartureDate.ToShortDateString());
+                model.OriginId, model.DestinationId, model.DepartureDate.ToShortDateString());
 
             if (model.OriginId == model.DestinationId)
             {
@@ -73,20 +57,19 @@ namespace BusSearch.Application.Services
             return null;
         }
 
-        public async Task<IEnumerable<object>> SearchLocationsAsync(string keyword)
+        public async Task<IEnumerable<LocationSearchDto>> SearchLocationsAsync(string keyword)
         {
             _logger.LogInformation("Lokasyon aranıyor. Anahtar kelime: {Keyword}", keyword);
             try
             {
-
                 var locations = string.IsNullOrWhiteSpace(keyword)
-                ? await _apiService.GetAllBusLocationsAsync()
-                : await _apiService.SearchBusLocationsAsync(keyword);
+                    ? await _apiService.GetAllBusLocationsAsync()
+                    : await _apiService.SearchBusLocationsAsync(keyword);
 
-                return locations.Select(l => new
+                return locations.Select(l => new LocationSearchDto
                 {
-                    l.Id,
-                    l.Name,
+                    Id = l.Id,
+                    Name = l.Name,
                     ParentName = l.CityName ?? ""
                 });
             }
@@ -95,7 +78,21 @@ namespace BusSearch.Application.Services
                 _logger.LogError(ex, "Lokasyon arama işlemi sırasında hata oluştu.");
                 throw;
             }
+        }
 
+        private JourneySearchDto MapToDto(BusLocationDto defaultOrigin, BusLocationDto defaultDestination, List<BusLocationDto> locations)
+        {
+            return new JourneySearchDto
+            {
+                Locations = locations,
+                OriginId = defaultOrigin?.Id ?? 0,
+                DestinationId = defaultDestination?.Id ?? 0,
+                OriginName = defaultOrigin?.Name ?? "",
+                DestinationName = defaultDestination?.Name ?? "",
+                OriginCityName = defaultOrigin?.CityName ?? "",
+                DestinationCityName = defaultDestination?.CityName ?? "",
+                DepartureDate = DateTime.Today.AddDays(1)
+            };
         }
     }
 }

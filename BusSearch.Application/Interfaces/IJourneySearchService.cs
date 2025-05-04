@@ -1,16 +1,12 @@
-﻿using BusSearch.Application.ViewModels;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using BusSearch.Application.Models.Dtos;
+
 
 namespace BusSearch.Application.Interfaces
 {
     public interface IJourneySearchService
     {
-        Task<JourneySearchViewModel> PrepareDefaultSearchModelAsync();
-        string ValidateSearchModel(JourneySearchViewModel model);
-        Task<IEnumerable<object>> SearchLocationsAsync(string keyword);
+        Task<JourneySearchDto> PrepareDefaultSearchModelAsync();
+        string ValidateSearchModel(JourneySearchDto model);
+        Task<IEnumerable<LocationSearchDto>> SearchLocationsAsync(string keyword);
     }
 }

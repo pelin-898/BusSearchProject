@@ -22,9 +22,17 @@
         document.getElementById("destinationCityName").value = data.destinationCityName;
 
         document.querySelector("input[type='date']").value = data.departureDate;
+    } else {
+        // LocalStorage yoksa Model'den gelen verilerle inputları doldur
+        const originName = document.getElementById("originName").value;
+        const originCity = document.getElementById("originCityName").value;
+        const destinationName = document.getElementById("destinationName").value;
+        const destinationCity = document.getElementById("destinationCityName").value;
+
+        updateLocationDisplay("origin", originName, originCity);
+        updateLocationDisplay("destination", destinationName, destinationCity);
     }
 
-    // Tarih seçimi değiştiğinde validasyonu tetikle
     document.querySelector("input[type='date']").addEventListener("change", validateFormFields);
 });
 

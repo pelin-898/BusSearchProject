@@ -1,45 +1,78 @@
+using BusSearch.Application.Constants;
 using BusSearch.Application.Interfaces;
-using BusSearch.Application.ViewModels;
-using BusSearch.WebUI.Models;
+using BusSearch.Application.Models.Dtos;
+using BusSearch.WebUI.ViewModels.Journey;
 using Microsoft.AspNetCore.Mvc;
-using System.Diagnostics;
 
 namespace BusSearch.WebUI.Controllers
 {
     public class HomeController : Controller
     {
         private readonly IJourneySearchService _journeySearchService;
+        private readonly ILogger<IJourneySearchService> _logger;
 
-        public HomeController(IJourneySearchService journeySearchService)
+        public HomeController(IJourneySearchService journeySearchService, ILogger<IJourneySearchService> logger)
         {
             _journeySearchService = journeySearchService;
+            _logger = logger;
         }
 
         [HttpGet]
         public async Task<IActionResult> Index()
         {
-            var model = await _journeySearchService.PrepareDefaultSearchModelAsync();
-            return View(model);
+            var dto = await _journeySearchService.PrepareDefaultSearchModelAsync();
+            var viewModel = new JourneySearchViewModel
+            {
+                OriginId = dto.OriginId,
+                DestinationId = dto.DestinationId,
+                OriginName = dto.OriginName,
+                DestinationName = dto.DestinationName,
+                OriginCityName = dto.OriginCityName,
+                DestinationCityName = dto.DestinationCityName,
+                DepartureDate = dto.DepartureDate,
+                Locations = dto.Locations
+            };
+
+            return View(viewModel);
         }
 
         [HttpPost]
-        public IActionResult Search(JourneySearchViewModel model)
+        public IActionResult Search(MainPageViewModel model)
         {
-            var validationError = _journeySearchService.ValidateSearchModel(model);
-            if (!string.IsNullOrEmpty(validationError))
+            if (!ModelState.IsValid)
+            {
+                TempData["ErrorMessage"] = ErrorMessages.FillTheForm;
+
+                return RedirectToAction(nameof(Index));
+            }
+          
+            var dto = new JourneySearchDto
+            {
+                OriginId= model.OriginId,
+                DestinationId=model.DestinationId,
+                OriginName = model.OriginName,
+                DestinationName = model.DestinationName,
+                DepartureDate = model.DepartureDate,
+            };
+
+            var validationError = _journeySearchService.ValidateSearchModel(dto);
+
+            if (!string.IsNullOrWhiteSpace(validationError))
             {
                 TempData["ErrorMessage"] = validationError;
                 return RedirectToAction(nameof(Index));
             }
 
-            return RedirectToAction("Index", "Journey", new
+            var routeValues = new
             {
-                model.OriginId,
-                model.DestinationId,
-                departureDate = model.DepartureDate.ToString("yyyy-MM-dd"),
-                model.OriginName,
-                model.DestinationName
-            });
+                OriginId = model.OriginId,
+                DestinationId = model.DestinationId,
+                DepartureDate = model.DepartureDate.ToString("yyyy-MM-dd"),
+                OriginName = model.OriginName,
+                DestinationName = model.DestinationName
+            };
+
+            return RedirectToAction("Index", "Journey", routeValues);
         }
 
         [HttpGet]

@@ -1,8 +1,5 @@
-using BusSearch.Application.Interfaces;
-using BusSearch.Application.Services;
-using System.Net.Http.Headers;
+using BusSearch.Application.ServiceRegistration;
 using BusSearch.Infrastructure.ServiceRegistration;
-using BusSearch.Infrastructure.Configurations;
 
 
 
@@ -15,9 +12,11 @@ builder.Services.AddSession();
 
 
 
-// Infrastructure içindeki tüm servisler DI'a eklendi
-builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddApplication();// Application service
+builder.Services.AddInfrastructure(builder.Configuration); // Infrastructure service
 
+//builder.Logging.ClearProviders();
+builder.Logging.AddConsole();
 
 var app = builder.Build();
 
@@ -33,8 +32,6 @@ app.UseSession();
 app.UseAuthorization();
 
 
-//builder.Logging.ClearProviders();
-builder.Logging.AddConsole();
 
 app.MapControllerRoute(
     name: "default",
