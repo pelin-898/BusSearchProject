@@ -1,0 +1,41 @@
+﻿@model BusSearch.Application.ViewModels.JourneyIndexViewModel
+@{
+    ViewData["Title"] = "Sefer Listesi";
+    var date = DateTime.Parse(@Model.DepartureDate);
+    var formattedDate = date.ToString("dd MMMM dddd", new System.Globalization.CultureInfo("tr-TR"));
+}
+
+<div class="container mt-3" style="max-width: 360px;">
+    <div class="bg-primary text-white p-3 rounded-top">
+        <div class="d-flex align-items-center">
+            <a href="javascript:history.back()" class="back-button">
+                <i class="bi bi-arrow-left"></i>
+            </a>
+            <div>
+                <strong>@Model.OriginName - @Model.DestinationName</strong><br />
+                <small>@formattedDate</small>
+            </div>
+        </div>
+    </div>
+    @if (!Model.Journeys.Any())
+    {
+        <div class="alert alert-info text-center mt-3" role="alert">
+            @Model.OriginName - @Model.DestinationName arasında otobüs seferi bulunamamaktadır.<br />
+            Dilerseniz farklı bir tarih seçerek tekrar deneyebilirsiniz.
+        </div>
+    }
+    @foreach (var journey in Model.Journeys)
+    {
+        <div class="journey-card d-grid align-items-center">
+            <div class="journey-info">
+                <div class="text-secondary small">KALKIŞ <strong class="text-primary">@journey.DepartureTime</strong></div>
+                <div class="text-secondary small">VARIŞ <strong class="text-primary">@journey.ArrivalTime</strong></div>
+                <div class="small">@journey.OriginTerminal - @journey.DestinationTerminal</div>
+            </div>
+            <button class="journey-price-button">
+                @journey.Price.ToString("N2") TL
+            </button>
+        </div>
+    }
+
+</div>

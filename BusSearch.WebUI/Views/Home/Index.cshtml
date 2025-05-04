@@ -1,0 +1,79 @@
+﻿@model BusSearch.Application.ViewModels.JourneySearchViewModel
+
+@{
+    ViewData["Title"] = "Bilet Ara";
+}
+
+<div class="container mt-4 p-3" style="max-width: 320px; background-color: #F8F8F8;">
+    <form asp-action="Search" method="post" id="searchForm">
+        <div class="bg-white p-3 rounded shadow-sm">
+            <!-- Hidden fields for model binding -->
+            <input type="hidden" asp-for="OriginId" id="originId" />
+            <input type="hidden" asp-for="DestinationId" id="destinationId" />
+            <input type="hidden" asp-for="OriginName" id="originName" />
+            <input type="hidden" asp-for="DestinationName" id="destinationName" />
+            <input type="hidden" id="originCityName" name="OriginCityName" value="@Model.OriginCityName" />
+            <input type="hidden" id="destinationCityName" name="DestinationCityName" value="@Model.DestinationCityName" />
+
+            <div class="position-relative mb-3 swap-container">
+                <!-- Swap -->
+                <button type="button" class="swap-button" onclick="swapLocations()" title="Yer değiştir">
+                    <i class="bi bi-arrow-down-up"></i>
+                </button>
+
+                <!-- Nereden -->
+                <div class="form-floating-custom mb-3">
+                    <div class="input-group">
+                        <div class="location-display w-100" id="originDisplay" onclick="focusInput('originInput')">
+                            <span id="originPlaceholder" class="text-muted">İl veya ilçe adı yazın</span>
+                            <div id="originLine1" class="fw-bold d-none"></div>
+                            <div id="originLine2" class="text-muted small d-none"></div>
+                        </div>
+                        <input type="text" id="originInput" class="form-control d-none" autocomplete="off" placeholder="İl veya ilçe adı yazın" />
+                    </div>
+                    <div id="originSuggestions" class="list-group position-absolute w-100" style="z-index: 10;"></div>
+                </div>
+
+                <!-- Nereye -->
+                <div class="form-floating-custom mb-3">
+                    <div class="input-group">
+                        <div class="location-display w-100" id="destinationDisplay" onclick="focusInput('destinationInput')">
+                            <span id="destinationPlaceholder" class="text-muted">İl veya ilçe adı yazın</span>
+                            <div id="destinationLine1" class="fw-bold d-none"></div>
+                            <div id="destinationLine2" class="text-muted small d-none"></div>
+                        </div>
+                        <input type="text" id="destinationInput" class="form-control d-none" autocomplete="off" placeholder="İl veya ilçe adı yazın" />
+
+                    </div>
+                    <div id="destinationSuggestions" class="list-group position-absolute w-100" style="z-index: 10;"></div>
+                </div>
+            </div>
+
+            <!-- Tarih -->
+            <div class="mb-3">
+                <label class="fw-bold text-primary">Tarih</label>
+                <div class="input-group">
+                    <input type="date" asp-for="DepartureDate" class="form-control" />
+                </div>
+                <div class="d-flex justify-content-end mt-2">
+                    <button type="button" class="btn btn-secondary btn-sm me-2" onclick="setToday()">Bugün</button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="setTomorrow()">Yarın</button>
+                </div>
+            </div>
+
+            <div class="d-grid mt-3">
+                <button type="submit" class="btn btn-primary">Bileti Bul</button>
+            </div>
+
+            <!-- Hata Mesajı -->
+            <div id="formErrorMessage" class="alert alert-danger d-none mt-2" role="alert"
+                 data-error="@TempData["ErrorMessage"]">
+            </div>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <script src="~/js/index-page.js" asp-append-version="true"></script>
+}
+
