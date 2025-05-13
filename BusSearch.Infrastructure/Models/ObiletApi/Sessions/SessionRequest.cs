@@ -1,6 +1,5 @@
 ﻿using System.Text.Json.Serialization;
 
-
 namespace BusSearch.Infrastructure.Models.ObiletApi.Sessions
 {
     public class SessionRequest

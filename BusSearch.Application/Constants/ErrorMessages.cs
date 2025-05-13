@@ -6,5 +6,7 @@
         public const string PastDate = "Geçmiş tarihli bir kalkış tarihi seçilemez.";
         public const string ValidDate = "Geçerli bir tarih bilgisi giriniz.";
         public const string FillTheForm = "Lütfen tüm alanları geçerli şekilde doldurun.";
+        public const string ErrorMessage = "ErrorMessage";
+        public const string DefaultErrorMessage = "Bir hata oluştu. Lütfen tekrar deneyin.";
     }
 }

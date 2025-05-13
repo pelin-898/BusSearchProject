@@ -6,7 +6,7 @@ namespace BusSearch.Application.Interfaces
     public interface IJourneySearchService
     {
         Task<JourneySearchDto> PrepareDefaultSearchModelAsync();
-        string ValidateSearchModel(JourneySearchDto model);
-        Task<IEnumerable<LocationSearchDto>> SearchLocationsAsync(string keyword);
+        Task<IEnumerable<LocationSummaryDto>> SearchLocationsAsync(string keyword);
+        Task<List<JourneyDto>> OrderJourneyModelAsync( int originId,  int destinationId, string departureDate);
     }
 }

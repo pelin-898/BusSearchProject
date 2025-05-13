@@ -8,5 +8,7 @@ namespace BusSearch.WebUI.ViewModels.Journey
     {
         public List<JourneyViewModel> Journeys { get; set; }
         public string DepartureDate { get; set; }
+        public int OriginId { get; set; }
+        public int LocationId { get; set; }
     }
 }

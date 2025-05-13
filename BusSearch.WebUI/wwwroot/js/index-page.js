@@ -1,6 +1,6 @@
 ﻿document.addEventListener("DOMContentLoaded", function () {
     const errorBox = document.getElementById("formErrorMessage");
-    const serverError = errorBox?.dataset.error;
+    const serverError = errorBox?.dataset.serverError;
 
     if (serverError) {
         errorBox.innerHTML = `<div>• ${serverError}</div>`;
@@ -109,16 +109,16 @@ function fetchLocations(inputId, suggestionsId, hiddenInputId, hiddenNameId, hid
 
             item.innerHTML = `
                 <div class="fw-bold">${loc.name}</div>
-                ${loc.parentName && loc.parentName !== loc.name
-                    ? `<div class="text-muted small">${loc.parentName}</div>`
+                ${loc.cityName && loc.cityName !== loc.name
+                    ? `<div class="text-muted small">${loc.cityName}</div>`
                     : ''}
             `;
 
             item.onclick = () => {
                 hiddenInput.value = loc.id;
                 hiddenNameInput.value = loc.name;
-                hiddenCityInput.value = loc.parentName ?? "";
-                updateLocationDisplay(hiddenInputId.replace("Id", ""), loc.name, loc.parentName);
+                hiddenCityInput.value = loc.cityName ?? "";
+                updateLocationDisplay(hiddenInputId.replace("Id", ""), loc.name, loc.cityName);
                 suggestions.innerHTML = "";
                 input.classList.add("d-none");
                 document.getElementById(inputId.replace("Input", "Display")).classList.remove("d-none");

@@ -13,7 +13,7 @@
                 <i class="bi bi-arrow-left"></i>
             </a>
             <div>
-                <strong>@Model.OriginName - @Model.DestinationName</strong><br />
+                <strong> <span id="fromDisplay"></span> → <span id="toDisplay"></span> <br />  </strong>
                 <small>@formattedDate</small>
             </div>
         </div>
@@ -21,7 +21,7 @@
     @if (!Model.Journeys.Any())
     {
         <div class="alert alert-info text-center mt-3" role="alert">
-            @Model.OriginName - @Model.DestinationName arasında otobüs seferi bulunamamaktadır.<br />
+            Seçtiğiniz duraklar arasında otobüs seferi bulunamamaktadır.<br />
             Dilerseniz farklı bir tarih seçerek tekrar deneyebilirsiniz.
         </div>
     }
@@ -31,12 +31,13 @@
             <div class="journey-info">
                 <div class="text-secondary small">KALKIŞ <strong class="text-primary">@journey.DepartureTime</strong></div>
                 <div class="text-secondary small">VARIŞ <strong class="text-primary">@journey.ArrivalTime</strong></div>
-                <div class="small">@journey.OriginTerminal - @journey.DestinationTerminal</div>
+                <div class="small">@journey.Origin - @journey.Destination</div>
             </div>
             <button class="journey-price-button">
-                @journey.Price.ToString("N2") TL
+                @journey.InternetPrice.ToString("N2") TL
             </button>
         </div>
     }
-
 </div>
+<script src="~/js/journey-page.js"></script>
+

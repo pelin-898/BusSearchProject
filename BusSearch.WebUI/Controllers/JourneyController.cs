@@ -1,49 +1,66 @@
 ﻿using BusSearch.Application.Constants;
+using BusSearch.Application.Exceptions;
 using BusSearch.Application.Interfaces;
 using BusSearch.Application.ViewModels.Journey;
+using BusSearch.WebUI.Mappings;
 using BusSearch.WebUI.ViewModels.Journey;
 using Microsoft.AspNetCore.Mvc;
 
 namespace BusSearch.WebUI.Controllers
 {
-    public class JourneyController : Controller
+    public class JourneyController : BaseController
     {
-        private readonly IObiletApiService _obiletService;
+        private readonly IJourneySearchService _journeySearchService;
+        private readonly IJourneyMappingService _journeyMapper;
+        private readonly ILogger<JourneyController> _logger;
 
-        public JourneyController(IObiletApiService obiletService)
+        public JourneyController(IJourneyMappingService journeyMapper, IJourneySearchService journeySearchService, ILogger<JourneyController> logger)
         {
-            _obiletService = obiletService;
+            _journeyMapper = journeyMapper;
+            _journeySearchService = journeySearchService;
+            _logger = logger;
         }
 
+
         [HttpGet]
-        public async Task<IActionResult> Index(int originId, int destinationId, string departureDate, string originName, string destinationName)
+        public async Task<IActionResult> Index(int originId, int destinationId, string departureDate)
         {
             if (!DateTime.TryParse(departureDate, out var parsedDate))
             {
-                TempData["ErrorMessage"] = ErrorMessages.ValidDate;
+                SetErrorMessage(ErrorMessages.ValidDate);
                 return RedirectToAction("Index", "Home");
             }
 
-            var journeyItems = await _obiletService.GetJourneysAsync(originId, destinationId, departureDate);
-
-            var journeys = journeyItems.Select(j => new JourneyViewModel
+            try
             {
-                OriginTerminal = j.OriginTerminal,
-                DestinationTerminal = j.DestinationTerminal,
-                DepartureTime = j.Departure.ToString("HH:mm"),
-                ArrivalTime = j.Arrival.ToString("HH:mm"),
-                Price = j.Price
-            }).ToList();
+                var journeyItems = await _journeySearchService.OrderJourneyModelAsync(originId, destinationId, departureDate);
+                var journeys = _journeyMapper.MapToViewModel(journeyItems);
+                var viewModel = BuildViewModel(parsedDate, journeys);
 
-            var model = new JourneyIndexViewModel
+                return View(viewModel);
+            }
+            catch (ObiletApiException ex)
             {
-                OriginName = originName ?? string.Empty,
-                DestinationName = destinationName ?? string.Empty,
+                _logger.LogError(ex, "Obilet API hatası: Sefer bilgileri alınamadı.");
+                SetErrorMessage(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Seferler alınırken beklenmeyen bir hata oluştu. OriginId: {OriginId}, DestinationId: {DestinationId}, DepartureDate: {Date}", originId, destinationId, departureDate);
+                SetErrorMessage("Seferler getirilemedi. Lütfen tekrar deneyin.\"");
+            }
+
+            return RedirectToAction("Index", "Home");
+        }
+
+
+        private JourneyIndexViewModel BuildViewModel(DateTime parsedDate, List<JourneyViewModel> journeys)
+        {
+            return new JourneyIndexViewModel
+            {
                 DepartureDate = parsedDate.ToString("yyyy-MM-dd"),
                 Journeys = journeys
             };
-
-            return View(model);
         }
     }
 }

@@ -3,7 +3,6 @@ using BusSearch.Application.Interfaces;
 using BusSearch.Application.Models.Dtos;
 using Microsoft.Extensions.Logging;
 
-
 namespace BusSearch.Application.Services
 {
     public class JourneySearchService : IJourneySearchService
@@ -17,81 +16,47 @@ namespace BusSearch.Application.Services
             _logger = logger;
         }
 
+  
         public async Task<JourneySearchDto> PrepareDefaultSearchModelAsync()
         {
-            _logger.LogInformation("Varsayılan arama modeli hazırlanıyor.");
-            try
-            {
-                var locations = await _apiService.GetAllBusLocationsAsync();
-                var sortedLocations = locations.OrderBy(x => x.Rank ?? int.MaxValue).ToList();
+            var locations = await _apiService.GetAllBusLocationsAsync();
+            var sortedLocations = locations.OrderBy(x => x.Rank ?? int.MaxValue).ToList();
 
-                var defaultOrigin = sortedLocations.FirstOrDefault();
-                var defaultDestination = sortedLocations.ElementAtOrDefault(2);
+            var defaultOrigin = sortedLocations.FirstOrDefault();
+            var defaultDestination = sortedLocations.ElementAtOrDefault(2); // 3. şehir varış olarak alındı
 
-                return MapToDto(defaultOrigin, defaultDestination, sortedLocations);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Varsayılan arama modeli hazırlanırken bir hata oluştu.");
-                throw;
-            }
+            return CreateSearchDto(defaultOrigin, defaultDestination, sortedLocations);
         }
 
-        public string ValidateSearchModel(JourneySearchDto model)
+        public async Task<List<JourneyDto>> OrderJourneyModelAsync(int originId, int destinationId, string departureDate)
         {
-            _logger.LogInformation("Arama modeli doğrulanıyor. OriginId: {OriginId}, DestinationId: {DestinationId}, Date: {Date}",
-                model.OriginId, model.DestinationId, model.DepartureDate.ToShortDateString());
-
-            if (model.OriginId == model.DestinationId)
-            {
-                _logger.LogWarning("Origin ve Destination aynı seçildi.");
-                return ErrorMessages.SameLocation;
-            }
-
-            if (model.DepartureDate.Date < DateTime.Today)
-            {
-                _logger.LogWarning("Geçmiş tarih seçildi: {Date}", model.DepartureDate.ToShortDateString());
-                return ErrorMessages.PastDate;
-            }
-
-            return null;
+            var journeys = await _apiService.GetJourneysAsync(originId, destinationId, departureDate);
+            return journeys.OrderBy(x => x.Journey.Departure).ToList();
         }
 
-        public async Task<IEnumerable<LocationSearchDto>> SearchLocationsAsync(string keyword)
+        public async Task<IEnumerable<LocationSummaryDto>> SearchLocationsAsync(string keyword)
         {
-            _logger.LogInformation("Lokasyon aranıyor. Anahtar kelime: {Keyword}", keyword);
-            try
-            {
-                var locations = string.IsNullOrWhiteSpace(keyword)
-                    ? await _apiService.GetAllBusLocationsAsync()
-                    : await _apiService.SearchBusLocationsAsync(keyword);
+            var locations = string.IsNullOrWhiteSpace(keyword)
+                ? await _apiService.GetAllBusLocationsAsync()
+                : await _apiService.SearchBusLocationsAsync(keyword);
 
-                return locations.Select(l => new LocationSearchDto
-                {
-                    Id = l.Id,
-                    Name = l.Name,
-                    ParentName = l.CityName ?? ""
-                });
-            }
-            catch (Exception ex)
+            return locations.Select(l => new LocationSummaryDto
             {
-                _logger.LogError(ex, "Lokasyon arama işlemi sırasında hata oluştu.");
-                throw;
-            }
+                Id = l.Summary.Id,
+                Name = l.Summary.Name,
+                CityName = l.Summary.CityName ?? string.Empty
+            });
         }
 
-        private JourneySearchDto MapToDto(BusLocationDto defaultOrigin, BusLocationDto defaultDestination, List<BusLocationDto> locations)
+
+        private JourneySearchDto CreateSearchDto(BusLocationDto? defaultOrigin, BusLocationDto? defaultDestination, List<BusLocationDto> locations)
         {
             return new JourneySearchDto
             {
-                Locations = locations,
-                OriginId = defaultOrigin?.Id ?? 0,
-                DestinationId = defaultDestination?.Id ?? 0,
-                OriginName = defaultOrigin?.Name ?? "",
-                DestinationName = defaultDestination?.Name ?? "",
-                OriginCityName = defaultOrigin?.CityName ?? "",
-                DestinationCityName = defaultDestination?.CityName ?? "",
-                DepartureDate = DateTime.Today.AddDays(1)
+                Origin = defaultOrigin?.Summary,
+                Destination = defaultDestination?.Summary,
+                DepartureDate = DateTime.Today.AddDays(1),
+                Locations = locations
             };
         }
     }

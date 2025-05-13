@@ -18,7 +18,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\BusSearch.Application\BusSearch.Application.csproj" />
-    <ProjectReference Include="..\BusSearch.Domain\BusSearch.Domain.csproj" />
   </ItemGroup>
 
 </Project>

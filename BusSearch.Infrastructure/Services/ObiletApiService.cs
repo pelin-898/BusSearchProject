@@ -1,16 +1,18 @@
-﻿using System.Net.Http.Json;
-using System.Text.Json;
-using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using BusSearch.Application.Interfaces;
 using BusSearch.Application.Constants;
 using BusSearch.Application.Models.Dtos;
+using BusSearch.Application.Exceptions;
 using BusSearch.Infrastructure.Configurations;
 using BusSearch.Infrastructure.Models.ObiletApi.Location;
 using BusSearch.Infrastructure.Models.ObiletApi.Journey;
 using BusSearch.Infrastructure.Models.ObiletApi.Sessions;
 using BusSearch.Infrastructure.Models.ObiletApi;
+using System.Net.Http.Json;
+using BusSearch.Infrastructure.Mappers;
+using System.Text.Json;
 
 namespace BusSearch.Infrastructure.Services
 {
@@ -37,11 +39,7 @@ namespace BusSearch.Infrastructure.Services
             set => _httpContextAccessor.HttpContext?.Session.SetString("DeviceId", value!);
         }
 
-        public ObiletApiService(
-            HttpClient httpClient,
-            IHttpContextAccessor httpContextAccessor,
-            ILogger<ObiletApiService> logger,
-            IOptions<ClientDefaults> clientDefaults)
+        public ObiletApiService(HttpClient httpClient, IHttpContextAccessor httpContextAccessor, ILogger<ObiletApiService> logger, IOptions<ClientDefaults> clientDefaults)
         {
             _httpClient = httpClient;
             _httpContextAccessor = httpContextAccessor;
@@ -49,34 +47,37 @@ namespace BusSearch.Infrastructure.Services
             _clientDefaults = clientDefaults.Value;
         }
 
-        public async Task EnsureSessionAsync()
+        public async Task<List<BusLocationDto>> GetAllBusLocationsAsync()
         {
-            if (!string.IsNullOrEmpty(SessionId) && !string.IsNullOrEmpty(DeviceId))
-                return;
+            await EnsureSessionAsync();
+            var request = CreateDeviceRequest(new BusLocationRequest { Data = null });
+            var response = await SendRequestAsync<ObiletResponse<List<BusLocationResponse>>>(BusLocationsUrl, request);
+            
+            if (response?.Data is null)
+            {
+                throw new ObiletApiException("Otobüs lokasyonları alınamadı. Lütfen tekrar deneyiniz.");
+            }
 
-            _logger.LogInformation("Yeni session oluşturuluyor...");
+            return LocationMapper.ToDtoList(response.Data);
+        }
 
-            var request = CreateSessionRequest();
-            var response = await SendRequestAsync<SessionResponse>(GetSessionUrl, request);
+        public async Task<List<BusLocationDto>> SearchBusLocationsAsync(string keyword)
+        {
+            await EnsureSessionAsync();
+            var request = CreateDeviceRequest(new BusLocationRequest { Data = keyword });
+            var response = await SendRequestAsync<ObiletResponse<List<BusLocationResponse>>>(BusLocationsUrl, request);
 
             if (response?.Data is null)
             {
-                _logger.LogError("Session oluşturulamadı. Sunucudan geçerli yanıt alınamadı.");
-                throw new Exception("Session oluşturulamadı.");
+                throw new ObiletApiException("Lokasyon araması sonucunda geçerli veri alınamadı.");
             }
 
-            SessionId = response.Data.SessionId;
-            DeviceId = response.Data.DeviceId;
-
-            _logger.LogInformation("Session oluşturuldu. SessionId: {SessionId}, DeviceId: {DeviceId}", SessionId, DeviceId);
+            return LocationMapper.ToDtoList(response.Data);
         }
 
-        public async Task<List<JourneyItemDto>> GetJourneysAsync(int originId, int destinationId, string departureDate)
+        public async Task<List<JourneyDto>> GetJourneysAsync(int originId, int destinationId, string departureDate)
         {
             await EnsureSessionAsync();
-
-            _logger.LogInformation("Seferler alınıyor. OriginId: {OriginId}, DestinationId: {DestinationId}, Date: {Date}",
-                originId, destinationId, departureDate);
 
             var request = CreateDeviceRequest(new JourneyRequest
             {
@@ -88,106 +89,24 @@ namespace BusSearch.Infrastructure.Services
                 }
             });
 
-            var response = await SendRequestAsync<JourneyResponse>(JourneyUrl, request);
+            var response = await SendRequestAsync<ObiletResponse<List<JourneyResponse>>>(JourneyUrl, request);
 
-            return response?.Data?.Select(j => new JourneyItemDto
+            if (response?.Data is null)
             {
-                OriginLocation = j.OriginLocation,
-                DestinationLocation = j.DestinationLocation,
-                OriginTerminal = j.Journey.Origin,
-                DestinationTerminal = j.Journey.Destination,
-                Departure = j.Journey.Departure,
-                Arrival = j.Journey.Arrival,
-                Price = j.Journey.InternetPrice
-            }).OrderBy(j => j.Departure).ToList() ?? new();
-        }
-
-        public async Task<List<BusLocationDto>> GetAllBusLocationsAsync()
-        {
-            await EnsureSessionAsync();
-
-            _logger.LogInformation("Tüm otobüs lokasyonları alınıyor...");
-
-            var request = CreateDeviceRequest(new BusLocationRequest { Data = null });
-
-            var response = await SendRequestAsync<BusLocationResponse>(BusLocationsUrl, request);
-
-            return response?.Data?.Select(l => new BusLocationDto
-            {
-                Id = l.Id,
-                Name = l.Name,
-                CityName = l.CityName,
-                Rank = l.Rank
-            }).ToList() ?? new();
-        }
-
-        public async Task<List<BusLocationDto>> SearchBusLocationsAsync(string keyword)
-        {
-            await EnsureSessionAsync();
-
-            _logger.LogInformation("Lokasyon aranıyor. Anahtar kelime: {Keyword}", keyword);
-
-            var request = CreateDeviceRequest(new BusLocationRequest { Data = keyword });
-
-            var response = await SendRequestAsync<BusLocationResponse>(BusLocationsUrl, request);
-
-            return response?.Data?.Select(l => new BusLocationDto
-            {
-                Id = l.Id,
-                Name = l.Name,
-                CityName = l.CityName,
-                Rank = l.Rank
-            }).ToList() ?? new();
-        }
-
-        private async Task<T?> SendRequestAsync<T>(string url, object requestBody)
-        {
-            try
-            {
-                _logger.LogDebug("POST isteği gönderiliyor -> {Url}", url);
-
-                var response = await _httpClient.PostAsJsonAsync(url, requestBody);
-                var content = await response.Content.ReadAsStringAsync();
-
-                if (!response.IsSuccessStatusCode)
-                {
-                    _logger.LogError("{Url} çağrısı başarısız. StatusCode: {StatusCode}, İçerik: {Content}", url, response.StatusCode, content);
-                    return default;
-                }
-
-                return JsonSerializer.Deserialize<T>(content, new JsonSerializerOptions
-                {
-                    PropertyNameCaseInsensitive = true
-                });
+                throw new ObiletApiException("Sunucudan sefer bilgileri alınamadı.");
             }
-            catch (JsonException ex)
+
+            if (!response.Data.Any())
             {
-                _logger.LogError(ex, "JSON parse hatası. Url: {Url}", url);
-                return default;
+                _logger.LogWarning("Sefer bulunamadı. OriginId: {OriginId}, DestinationId: {DestinationId}", originId, destinationId);
             }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "İstek gönderilirken beklenmedik bir hata oluştu. Url: {Url}", url);
-                return default;
-            }
+
+            return JourneyMapper.ToDtoList(response.Data);
         }
 
-        private T CreateDeviceRequest<T>(T request) where T : IDeviceRequest
+        public async Task<SessionResponse> CreateSessionAsync()
         {
-            request.DeviceSession = new DeviceSession
-            {
-                SessionId = SessionId!,
-                DeviceId = DeviceId!
-            };
-            request.Date = DateTime.Now;
-            request.Language = Languages.DefaultLanguage;
-
-            return request;
-        }
-
-        private SessionRequest CreateSessionRequest()
-        {
-            return new SessionRequest
+            var request = new SessionRequest
             {
                 Type = 1,
                 Connection = new Connection
@@ -201,6 +120,82 @@ namespace BusSearch.Infrastructure.Services
                     Version = _clientDefaults.BrowserVersion
                 }
             };
+
+            var response = await SendRequestAsync<ObiletResponse<SessionResponse>>(GetSessionUrl, request);
+
+            if (response?.Data is null)
+            {
+                throw new ObiletApiException("Sunucudan geçerli oturum verisi alınamadı.");
+            }
+
+            SessionId = response.Data.SessionId;
+            DeviceId = response.Data.DeviceId;
+
+            return response.Data;
+        }
+
+        private async Task EnsureSessionAsync()
+        {
+            if (!string.IsNullOrEmpty(SessionId) && !string.IsNullOrEmpty(DeviceId))
+                return;
+
+            await CreateSessionAsync();
+        }
+
+        private async Task<T?> SendRequestAsync<T>(string url, object requestBody)
+        {
+            try
+            {
+                var response = await _httpClient.PostAsJsonAsync(url, requestBody);
+                var content = await response.Content.ReadAsStringAsync();
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogError("{Url} çağrısı başarısız. StatusCode: {StatusCode}, İçerik: {Content}", url, response.StatusCode, content);
+                    throw new ObiletApiException(
+                        message: $"Obilet API çağrısı başarısız. StatusCode: {response.StatusCode}",
+                        statusCode: response.StatusCode,
+                        responseContent: content
+                    );
+                }
+
+                var result = JsonSerializer.Deserialize<T>(content, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+
+                if (result == null)
+                {
+                    _logger.LogError("JSON yanıtı deserialize edilemedi (null döndü). Url: {Url}, İçerik: {Content}", url, content);
+                    throw new ObiletApiException("Sunucudan geçerli yanıt alınamadı.");
+                }
+
+                return result;
+            }
+            catch (JsonException ex)
+            {
+                _logger.LogError(ex, "JSON parse hatası. Url: {Url}", url);
+                throw new ObiletApiException("Obilet API yanıtı çözümlenemedi.", ex);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "{Url} çağrısı sırasında beklenmeyen hata oluştu.", url);
+                throw new ObiletApiException("Obilet API çağrısı sırasında bir hata oluştu.", ex);
+            }
+        }
+
+
+
+        private T CreateDeviceRequest<T>(T request) where T : IDeviceRequest
+        {
+            request.DeviceSession = new DeviceSession
+            {
+                SessionId = SessionId ?? throw new InvalidOperationException("SessionId boş."),
+                DeviceId = DeviceId ?? throw new InvalidOperationException("DeviceId boş.")
+            };
+            request.Date = DateTime.Now;
+            request.Language = Languages.DefaultLanguage;
+            return request;
         }
     }
 }
